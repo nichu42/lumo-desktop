@@ -19,14 +19,27 @@ WebKitGTK. Every package here therefore requires:
 
 | Component | Why |
 |---|---|
-| `webkit2gtk-4.1` | renders the app (the one hard requirement) |
-| `gtk3` | window, tray, dialogs |
+| `webkit2gtk-4.1` | renders the app — required by the **pacman package**; the AppImage bundles its own copy |
+| `gtk3` | window, tray, dialogs (also bundled in the AppImage) |
 | `libayatana-appindicator` | tray icon |
 | a Secret Service provider (`gnome-keyring` or `kwallet`) | OAuth tokens, API keys, MCP credentials |
 
-Because WebKitGTK is not bundled, an AppImage is ~20 MB and behaves exactly
-like the Arch package — the same binary, the same host libraries. There is no
-"AppImage with everything inside" variant: bundling WebKit is not practical.
+The two artifacts differ here, measurably:
+
+- The **Arch package** links the system WebKitGTK, so `webkit2gtk-4.1` is a
+  real package dependency and the installed footprint stays small (~18 MB
+  binary).
+- The **AppImage** is ~85 MB because Tauri's bundler (linuxdeploy with the GTK
+  plugin) pulls `libwebkit2gtk-4.1`, `libjavascriptcoregtk-4.1`, GTK 3,
+  libsoup 3 and the WebKit injected bundle into the image. It therefore runs on
+  distributions without `webkit2gtk-4.1`; it still needs a reasonably current
+  glibc, X11/Wayland, a Secret Service provider, and GStreamer plugins for
+  media playback.
+
+Because the AppImage carries its own engine, the two artifacts are not
+byte-identical: the Arch package is a thin client for the system WebKitGTK,
+the AppImage is self-contained and larger. Both are built from the same
+upstream commit.
 
 ## Install
 

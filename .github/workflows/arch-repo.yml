@@ -135,8 +135,10 @@ jobs:
 
           # Rebuild the database from the package files that are actually
           # present. repo-add is incremental, so a stale entry would survive
-          # forever otherwise; a rebuild keeps files and database in lockstep
-          # and still lists every retained version for downgrades.
+          # forever otherwise; a rebuild keeps files and database in lockstep.
+          # Note repo-add keeps ONE entry per package name (it replaces an
+          # older version), so earlier files stay on disk for a manual
+          # `pacman -U` but are not offered by the repository.
           rm -f lumo.db* lumo.files*
 
           if [ -n "${GPG_KEY_ID:-}" ]; then

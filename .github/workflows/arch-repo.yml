@@ -39,10 +39,22 @@ jobs:
     container:
       image: archlinux:base-devel
     steps:
-      - name: Install build tooling
-        run: pacman -Syu --noconfirm --needed git nodejs npm pkgconf rust
+      - name: Install base tooling
+        run: pacman -Syu --noconfirm --needed git
 
       - uses: actions/checkout@v4
+
+      - name: Install the recipe's dependencies
+        run: |
+          set -euo pipefail
+          # Derive the list from the recipe itself so the workflow cannot drift
+          # from the PKGBUILD. --nodeps later is only safe because of this step:
+          # gtk3/webkit2gtk-4.1 headers are what pkg-config needs during cargo.
+          cd packaging/arch
+          makepkg --printsrcinfo > /tmp/srcinfo
+          deps=$(awk -F' = ' '/^[[:space:]]*(make)?depends = /{print $2}' /tmp/srcinfo | tr '\n' ' ')
+          echo "installing: $deps"
+          pacman -S --noconfirm --needed $deps
 
       - name: The two NOTICE copies must not drift
         run: cmp NOTICE packaging/arch/NOTICE

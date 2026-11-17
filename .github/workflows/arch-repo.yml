@@ -127,6 +127,18 @@ jobs:
           cp LICENSE NOTICE site/arch/x86_64/
 
           cd site/arch/x86_64
+          # Split packages this recipe no longer produces (an older -debug
+          # build) must not linger: a package file and its database entry are
+          # two separate things, and pruning only one leaves the repo
+          # advertising a download that is gone.
+          rm -f ./*-debug-*.pkg.tar.zst
+
+          # Rebuild the database from the package files that are actually
+          # present. repo-add is incremental, so a stale entry would survive
+          # forever otherwise; a rebuild keeps files and database in lockstep
+          # and still lists every retained version for downgrades.
+          rm -f lumo.db* lumo.files*
+
           if [ -n "${GPG_KEY_ID:-}" ]; then
             repo-add --sign --key "$GPG_KEY_ID" lumo.db.tar.gz ./*.pkg.tar.zst
             gpg --export --armor "$GPG_KEY_ID" > lumo.gpg

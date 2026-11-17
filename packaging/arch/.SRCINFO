@@ -1,7 +1,7 @@
 pkgbase = lumo-desktop
 	pkgdesc = Lumo: Proton's private AI assistant (unofficial Linux build)
 	pkgver = 0.5.9
-	pkgrel = 1
+	pkgrel = 2
 	url = https://github.com/nichu42/lumo-desktop
 	arch = x86_64
 	license = GPL-3.0-only
@@ -18,6 +18,8 @@ pkgbase = lumo-desktop
 	provides = lumo-bin
 	conflicts = lumo-bin
 	options = !lto
+	options = !debug
+	options = !strip
 	source = lumo-desktop-0.5.9.tar.gz::https://github.com/ProtonLumo/lumo-desktop/archive/bd5e2c608bac61f215d4a2094e26ef88cb7bc1e0.tar.gz
 	source = lumo-desktop.desktop
 	source = NOTICE

@@ -9,7 +9,7 @@
 
 pkgname=lumo-desktop
 pkgver=0.5.9
-pkgrel=1
+pkgrel=2
 pkgdesc="Lumo: Proton's private AI assistant (unofficial Linux build)"
 arch=('x86_64')
 url="https://github.com/nichu42/lumo-desktop"
@@ -54,8 +54,10 @@ sha256sums=(
 # the resulting LTO bitcode objects inside the .rlibs are not resolvable at the
 # final Rust link, and the build dies with "undefined reference to
 # aws_lc_0_45_0_*" / "ring_core_0_17_14__*". Arch's own packaging fix is to
-# disable makepkg LTO per package: options=(!lto).
-options=('!lto')
+# disable makepkg LTO per package: options=(!lto). '!debug'/'!strip' because
+# cargo already strips the release binary — an empty -debug package would only
+# add noise to the repository.
+options=('!lto' '!debug' '!strip')
 
 build() {
     cd "$_archive"

@@ -15,6 +15,7 @@
 > repository and an AppImage built from this source. Install instructions,
 > host requirements and known limitations are in **[PACKAGING.md](PACKAGING.md)**.
 > Not affiliated with or endorsed by Proton AG.
+> Note: Work in progress!
 
 Lumo Desktop wraps the Lumo web app in a native [Tauri](https://tauri.app) shell and gives it access to your
 computer and your tools, with your approval:

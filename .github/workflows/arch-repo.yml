@@ -52,7 +52,18 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-24.04
+    container:
+      # repo-add and the pacman keyring tooling only exist in an Arch
+      # environment; a bare Ubuntu runner cannot publish a pacman repository.
+      image: archlinux:base-devel
+    env:
+      # Job-level so the step-level `if` below can test it: the secrets
+      # context is not reliably available inside `if` expressions.
+      PACMAN_GPG_KEY: ${{ secrets.PACMAN_GPG_KEY }}
     steps:
+      - name: Install publishing tooling
+        run: pacman -Syu --noconfirm --needed git gnupg
+
       - uses: actions/download-artifact@v4
         with:
           name: arch-package
@@ -63,9 +74,7 @@ jobs:
           fetch-depth: 0
 
       - name: Import signing key
-        if: ${{ secrets.PACMAN_GPG_KEY != '' }}
-        env:
-          PACMAN_GPG_KEY: ${{ secrets.PACMAN_GPG_KEY }}
+        if: env.PACMAN_GPG_KEY != ''
         run: printf '%s' "$PACMAN_GPG_KEY" | gpg --batch --import
 
       - name: Publish to gh-pages

@@ -117,6 +117,18 @@ patches are applied. `NOTICE` records the attribution and the packaging
 additions; `packaging/arch/NOTICE` must stay byte-identical to it (the Arch
 workflow fails otherwise).
 
+## First-time setup (repository owner)
+
+- **Pages:** Settings → Pages → deploy from the `gh-pages` branch (root). The
+  Arch workflow creates that branch on the first run.
+- **Signing (recommended):** add `PACMAN_GPG_KEY` (armoured private key) and
+  `PACMAN_GPG_KEY_ID` as repository secrets. Without them the repo publishes
+  unsigned and prints a warning in the run log.
+- **Default branch:** make `linux` the default branch, or merge it into
+  `master`. GitHub only *schedules* workflows and lists `workflow_dispatch`
+  entries from the default branch — with packaging living only on `linux` and
+  `master` still mirroring upstream, the daily watcher would never run.
+
 ## Releasing
 
 1. `git fetch upstream && git merge upstream/master` (fork tracks upstream).

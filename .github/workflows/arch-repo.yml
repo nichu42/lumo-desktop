@@ -1,17 +1,23 @@
 name: Arch repository
 
-# Builds the pacman package in an Arch container and publishes it, together
-# with the pacman database, to the gh-pages branch. Users then get updates
-# through `pacman -Syu`:
+# Builds the pacman package in an Arch container, folds it into the published
+# repository, and deploys the result to GitHub Pages.
+#
+# Pages is configured with "Source: GitHub Actions", so the site is deployed by
+# deploy-pages — nothing is served from a gh-pages branch. Package history has
+# to live somewhere, otherwise every deployment would replace the repository
+# with a single version; the `repo-data` branch is that storage and is never
+# served directly.
+#
+# Users then get updates through `pacman -Syu`:
 #
 #   [lumo]
 #   SigLevel = Required DatabaseOptional
 #   Server = https://nichu42.github.io/lumo-desktop/arch/x86_64
 #
-# Signing is optional: if the PACMAN_GPG_KEY secret is configured, the package
-# and database are signed and `SigLevel = Required` works. Without it the
-# repository is unsigned and users need `SigLevel = Optional TrustAll` — see
-# PACKAGING.md.
+# Signing is optional: with the PACMAN_GPG_KEY secret the package and database
+# are signed and `SigLevel = Required` works. Without it the repository is
+# unsigned and users need `SigLevel = Optional TrustAll` — see PACKAGING.md.
 
 on:
   workflow_dispatch:
@@ -20,6 +26,12 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: arch-repo
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -49,64 +61,84 @@ jobs:
           name: arch-package
           path: packaging/arch/*.pkg.tar.zst
 
-  publish:
+  assemble:
     needs: build
     runs-on: ubuntu-24.04
     container:
-      # repo-add and the pacman keyring tooling only exist in an Arch
-      # environment; a bare Ubuntu runner cannot publish a pacman repository.
+      # repo-add and pacman keyring tooling only exist in an Arch environment.
       image: archlinux:base-devel
     env:
-      # Job-level so the step-level `if` below can test it: the secrets
-      # context is not reliably available inside `if` expressions.
+      # Job-level so the step-level `if` below can test it: the secrets context
+      # is not reliable inside `if` expressions.
       PACMAN_GPG_KEY: ${{ secrets.PACMAN_GPG_KEY }}
+      GPG_KEY_ID: ${{ secrets.PACMAN_GPG_KEY_ID }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Install publishing tooling
         run: pacman -Syu --noconfirm --needed git gnupg
+
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
         with:
           name: arch-package
           path: pkgs
 
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Import signing key
         if: env.PACMAN_GPG_KEY != ''
         run: printf '%s' "$PACMAN_GPG_KEY" | gpg --batch --import
 
-      - name: Publish to gh-pages
-        env:
-          GPG_KEY_ID: ${{ secrets.PACMAN_GPG_KEY_ID }}
+      - name: Restore the published repository
         run: |
           set -euo pipefail
-          git config user.name  'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-
-          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            git fetch --depth=1 origin gh-pages
-            git checkout -B gh-pages FETCH_HEAD
+          git config --global --add safe.directory '*'
+          git config --global user.name  'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" repo-data >/dev/null 2>&1; then
+            git clone --depth=1 --branch repo-data "$remote" site
           else
-            git checkout --orphan gh-pages
-            git rm -r --cached . >/dev/null 2>&1 || true
-            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            mkdir -p site
+            git -C site init -q -b repo-data
+            git -C site remote add origin "$remote"
           fi
 
-          mkdir -p arch/x86_64
-          cp pkgs/*.pkg.tar.zst arch/x86_64/
+      - name: Add the package to the repository
+        run: |
+          set -euo pipefail
+          mkdir -p site/arch/x86_64
+          cp pkgs/*.pkg.tar.zst site/arch/x86_64/
           # Notices travel with the repository, not only inside the package.
-          cp LICENSE NOTICE arch/x86_64/
+          cp LICENSE NOTICE site/arch/x86_64/
 
+          cd site/arch/x86_64
           if [ -n "${GPG_KEY_ID:-}" ]; then
-            repo-add --sign --key "$GPG_KEY_ID" arch/x86_64/lumo.db.tar.gz arch/x86_64/*.pkg.tar.zst
-            gpg --export --armor "$GPG_KEY_ID" > arch/x86_64/lumo.gpg
+            repo-add --sign --key "$GPG_KEY_ID" lumo.db.tar.gz ./*.pkg.tar.zst
+            gpg --export --armor "$GPG_KEY_ID" > lumo.gpg
           else
             echo "::warning::PACMAN_GPG_KEY not configured — publishing an UNSIGNED repository"
-            repo-add arch/x86_64/lumo.db.tar.gz arch/x86_64/*.pkg.tar.zst
+            repo-add lumo.db.tar.gz ./*.pkg.tar.zst
           fi
+          ls -la
 
+      - name: Commit the repository state
+        run: |
+          set -euo pipefail
+          cd site
           git add -A
-          git commit -m "repo: $(ls pkgs/*.pkg.tar.zst | xargs -n1 basename)"
-          git push origin gh-pages
+          git commit -q -m "repo: $(basename "$(ls ../pkgs/*.pkg.tar.zst | head -1)")"
+          git push origin repo-data
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: assemble
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

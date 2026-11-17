@@ -119,8 +119,10 @@ workflow fails otherwise).
 
 ## First-time setup (repository owner)
 
-- **Pages:** Settings → Pages → deploy from the `gh-pages` branch (root). The
-  Arch workflow creates that branch on the first run.
+- **Pages:** Settings → Pages → Source: **GitHub Actions** (not "deploy from a
+  branch"). The Arch workflow deploys with `deploy-pages`; the package history
+  is kept on the `repo-data` branch, which is storage only and never served.
+  A branch-based Pages setup would break this workflow's deploy step.
 - **Signing (recommended):** add `PACMAN_GPG_KEY` (armoured private key) and
   `PACMAN_GPG_KEY_ID` as repository secrets. Without them the repo publishes
   unsigned and prints a warning in the run log.

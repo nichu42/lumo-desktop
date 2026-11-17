@@ -124,10 +124,10 @@ workflow fails otherwise).
 - **Signing (recommended):** add `PACMAN_GPG_KEY` (armoured private key) and
   `PACMAN_GPG_KEY_ID` as repository secrets. Without them the repo publishes
   unsigned and prints a warning in the run log.
-- **Default branch:** make `linux` the default branch, or merge it into
+- **Default branch:** make `packaging` the default branch, or merge it into
   `master`. GitHub only *schedules* workflows and lists `workflow_dispatch`
-  entries from the default branch — with packaging living only on `linux` and
-  `master` still mirroring upstream, the daily watcher would never run.
+  entries from the default branch — with packaging living only on `packaging`
+  and `master` still mirroring upstream, the daily watcher would never run.
 
 ## Releasing
 

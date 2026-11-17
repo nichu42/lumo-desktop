@@ -1,0 +1,10 @@
+{
+  "bundle": {
+    "targets": ["appimage"],
+    "publisher": "unofficial build (nichu42)",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../NOTICE": "NOTICE"
+    }
+  }
+}

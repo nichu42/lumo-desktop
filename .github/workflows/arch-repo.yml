@@ -1,0 +1,103 @@
+name: Arch repository
+
+# Builds the pacman package in an Arch container and publishes it, together
+# with the pacman database, to the gh-pages branch. Users then get updates
+# through `pacman -Syu`:
+#
+#   [lumo]
+#   SigLevel = Required DatabaseOptional
+#   Server = https://nichu42.github.io/lumo-desktop/arch/x86_64
+#
+# Signing is optional: if the PACMAN_GPG_KEY secret is configured, the package
+# and database are signed and `SigLevel = Required` works. Without it the
+# repository is unsigned and users need `SigLevel = Optional TrustAll` — see
+# PACKAGING.md.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install build tooling
+        run: pacman -Syu --noconfirm --needed git nodejs npm pkgconf rust
+
+      - uses: actions/checkout@v4
+
+      - name: The two NOTICE copies must not drift
+        run: cmp NOTICE packaging/arch/NOTICE
+
+      - name: Build the package
+        run: |
+          set -euo pipefail
+          # makepkg refuses to run as root; dependencies are already installed
+          # above, so --nodeps is safe here.
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --noconfirm --nodeps"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: packaging/arch/*.pkg.tar.zst
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: arch-package
+          path: pkgs
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import signing key
+        if: ${{ secrets.PACMAN_GPG_KEY != '' }}
+        env:
+          PACMAN_GPG_KEY: ${{ secrets.PACMAN_GPG_KEY }}
+        run: printf '%s' "$PACMAN_GPG_KEY" | gpg --batch --import
+
+      - name: Publish to gh-pages
+        env:
+          GPG_KEY_ID: ${{ secrets.PACMAN_GPG_KEY_ID }}
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch --depth=1 origin gh-pages
+            git checkout -B gh-pages FETCH_HEAD
+          else
+            git checkout --orphan gh-pages
+            git rm -r --cached . >/dev/null 2>&1 || true
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          fi
+
+          mkdir -p arch/x86_64
+          cp pkgs/*.pkg.tar.zst arch/x86_64/
+          # Notices travel with the repository, not only inside the package.
+          cp LICENSE NOTICE arch/x86_64/
+
+          if [ -n "${GPG_KEY_ID:-}" ]; then
+            repo-add --sign --key "$GPG_KEY_ID" arch/x86_64/lumo.db.tar.gz arch/x86_64/*.pkg.tar.zst
+            gpg --export --armor "$GPG_KEY_ID" > arch/x86_64/lumo.gpg
+          else
+            echo "::warning::PACMAN_GPG_KEY not configured — publishing an UNSIGNED repository"
+            repo-add arch/x86_64/lumo.db.tar.gz arch/x86_64/*.pkg.tar.zst
+          fi
+
+          git add -A
+          git commit -m "repo: $(ls pkgs/*.pkg.tar.zst | xargs -n1 basename)"
+          git push origin gh-pages

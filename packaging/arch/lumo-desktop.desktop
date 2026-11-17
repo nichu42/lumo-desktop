@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Lumo Desktop (unofficial)
+GenericName=AI assistant
+Comment=Private AI assistant from Proton — unofficial Linux build
+Exec=lumo-desktop %u
+Icon=lumo-desktop
+Terminal=false
+StartupNotify=true
+Categories=Office;
+Keywords=AI;assistant;chat;lumo;proton;
+MimeType=x-scheme-handler/proton-lumo;
+StartupWMClass=lumo-desktop

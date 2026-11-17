@@ -1,0 +1,71 @@
+name: Watch upstream releases
+
+# Proton publishes the Linux version on a signed manifest used by the app's own
+# updater. It is the cheapest reliable source of truth for "is there a new
+# Lumo", and it is the same endpoint the packages are built against.
+#
+# When the manifest is newer than the packaged version, open an issue listing
+# what has to be bumped.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare manifest version with the packaged version
+        id: cmp
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          manifest=$(curl -fsSL https://lumo.protondownload.com/desktop/linux/latest.json)
+          upstream=$(printf '%s' "$manifest" | jq -r .version)
+          packaged=$(grep -m1 '^pkgver=' packaging/arch/PKGBUILD | cut -d= -f2)
+          echo "packaged=$packaged upstream=$upstream"
+          echo "packaged=$packaged" >> "$GITHUB_OUTPUT"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+
+          if [ "$(printf '%s\n%s\n' "$packaged" "$upstream" | sort -V | tail -1)" = "$packaged" ]; then
+            echo "newer=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "newer=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "Proton published Lumo $upstream (packaged: $packaged)."
+              echo
+              echo "Manifest: https://lumo.protondownload.com/desktop/linux/latest.json"
+              echo "Minimum supported version upstream: $(printf '%s' "$manifest" | jq -r '.minimum_supported_version // "n/a"')"
+              echo
+              echo "To release:"
+              echo "1. Update the fork: git fetch upstream && git merge upstream/master"
+              echo "2. Bump \`pkgver\` in packaging/arch/PKGBUILD and set \`_commit\` to the new upstream commit."
+              echo "3. Refresh the source checksum: \`cd packaging/arch && makepkg --verifysource\` prints the expected sha256."
+              echo "4. Regenerate .SRCINFO: \`makepkg --printsrcinfo > .SRCINFO\`."
+              echo "5. Tag \`v$upstream\` — the AppImage and Arch repo workflows build and publish from the tag."
+            } > issue-body.md
+          fi
+
+      - name: Open an issue
+        if: steps.cmp.outputs.newer == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM: ${{ steps.cmp.outputs.upstream }}
+        run: |
+          set -euo pipefail
+          # One tracking issue per upstream version, never duplicates.
+          title="Upstream Lumo $UPSTREAM released"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "issue #$existing already tracks $UPSTREAM"
+          else
+            gh issue create --title "$title" --body-file issue-body.md
+          fi

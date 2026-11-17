@@ -1,0 +1,27 @@
+pkgbase = lumo-desktop
+	pkgdesc = Lumo: Proton's private AI assistant (unofficial Linux build)
+	pkgver = 0.5.9
+	pkgrel = 1
+	url = https://github.com/nichu42/lumo-desktop
+	arch = x86_64
+	license = GPL-3.0-only
+	makedepends = cargo
+	makedepends = rust
+	makedepends = nodejs
+	makedepends = npm
+	makedepends = pkgconf
+	depends = gtk3
+	depends = webkit2gtk-4.1
+	depends = libayatana-appindicator
+	optdepends = gnome-keyring: encrypted credential storage
+	optdepends = kwallet: encrypted credential storage (KDE Plasma)
+	provides = lumo-bin
+	conflicts = lumo-bin
+	source = lumo-desktop-0.5.9.tar.gz::https://github.com/ProtonLumo/lumo-desktop/archive/bd5e2c608bac61f215d4a2094e26ef88cb7bc1e0.tar.gz
+	source = lumo-desktop.desktop
+	source = NOTICE
+	sha256sums = 0d1e00e455dec1f6e26b329ef6e9927ceca3d48091a4346e02226367baaa719d
+	sha256sums = 33be5d2d10e2d6b44312712de6a9d4ccf983282583d10146301c0c3d323eb9d9
+	sha256sums = cdc14f31b260a261649b34fac50234c6ba5755154058e4f404107472822aee14
+
+pkgname = lumo-desktop

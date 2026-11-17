@@ -1,0 +1,87 @@
+name: Build Linux AppImage
+
+# Builds the unofficial Linux AppImage from source on the oldest runner that
+# still has WebKitGTK 4.1 (ubuntu-22.04 / glibc 2.35), so the artifact runs on
+# Debian 12-era distributions and newer.
+#
+# The AppImage does NOT bundle WebKit: it links the host's webkit2gtk-4.1,
+# gtk3 and libayatana-appindicator, exactly like the .deb/.rpm builds do.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl wget file pkg-config \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libssl-dev libxdo-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install npm dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build AppImage
+        # packaging/appimage/tauri.appimage.json only overrides the bundle
+        # target and ships LICENSE/NOTICE inside the AppImage; the upstream
+        # Tauri config is untouched.
+        run: npm run build -- --bundles appimage --config packaging/appimage/tauri.appimage.json
+
+      - name: Verify the AppImage ships its notices
+        run: |
+          set -euo pipefail
+          appimage=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -print -quit)
+          [ -n "$appimage" ] || { echo "no AppImage produced" >&2; exit 1; }
+          chmod +x "$appimage"
+          "$appimage" --appimage-extract >/dev/null
+          for f in LICENSE NOTICE; do
+            found=$(find squashfs-root -name "$f" -size +500c -print -quit)
+            [ -n "$found" ] || { echo "$f missing from the AppImage" >&2; exit 1; }
+          done
+          echo "notices present in $appimage"
+
+      - name: Collect release artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp src-tauri/target/release/bundle/appimage/*.AppImage out/
+          cp NOTICE LICENSE out/
+          (cd out && sha256sum ./* > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumo-appimage
+          path: out/*
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" out/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Lumo $GITHUB_REF_NAME (unofficial Linux build)" \
+            --notes "Unofficial Linux AppImage built from Proton's published source. Requires webkit2gtk-4.1, gtk3 and libayatana-appindicator. See PACKAGING.md for requirements, limitations and how updates work."

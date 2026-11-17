@@ -23,3 +23,12 @@ src-tauri/dist/
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/test_output
+
+# Unofficial Linux packaging (see PACKAGING.md): makepkg work dirs and the
+# release staging directory. .SRCINFO is committed on purpose.
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.zst
+packaging/arch/*.tar.gz
+packaging/appimage/out/
+out/

@@ -11,6 +11,11 @@
 
 ---
 
+> **Unofficial Linux packaging:** this fork adds an Arch package, a pacman
+> repository and an AppImage built from this source. Install instructions,
+> host requirements and known limitations are in **[PACKAGING.md](PACKAGING.md)**.
+> Not affiliated with or endorsed by Proton AG.
+
 Lumo Desktop wraps the Lumo web app in a native [Tauri](https://tauri.app) shell and gives it access to your
 computer and your tools, with your approval:
 

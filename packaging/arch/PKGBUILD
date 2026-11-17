@@ -1,0 +1,90 @@
+# Maintainer: nichu42 <nroediger@nic-site.de>
+# Unofficial Arch package for Proton's Lumo desktop app.
+#
+# Built from the upstream source at a pinned commit. No local patches are
+# applied; see NOTICE for attribution and the batched packaging additions.
+#
+# Lumo is a Tauri app: the binary links against the *host* WebKitGTK, so the
+# runtime dependencies below are real requirements, not niceties.
+
+pkgname=lumo-desktop
+pkgver=0.5.9
+pkgrel=1
+pkgdesc="Lumo: Proton's private AI assistant (unofficial Linux build)"
+arch=('x86_64')
+url="https://github.com/nichu42/lumo-desktop"
+license=('GPL-3.0-only')
+depends=(
+    'gtk3'
+    'webkit2gtk-4.1'
+    'libayatana-appindicator'
+)
+optdepends=(
+    'gnome-keyring: encrypted credential storage'
+    'kwallet: encrypted credential storage (KDE Plasma)'
+)
+makedepends=(
+    'cargo'
+    'rust'
+    'nodejs'
+    'npm'
+    'pkgconf'
+)
+# Ships the same binary paths as the deb-repack package this replaces.
+provides=('lumo-bin')
+conflicts=('lumo-bin')
+
+# Upstream commit this package is built from (ProtonLumo/lumo-desktop).
+_commit=bd5e2c608bac61f215d4a2094e26ef88cb7bc1e0
+_archive="lumo-desktop-$_commit"
+
+source=(
+    "$pkgname-$pkgver.tar.gz::https://github.com/ProtonLumo/lumo-desktop/archive/$_commit.tar.gz"
+    'lumo-desktop.desktop'
+    'NOTICE'
+)
+sha256sums=(
+    '0d1e00e455dec1f6e26b329ef6e9927ceca3d48091a4346e02226367baaa719d'
+    '33be5d2d10e2d6b44312712de6a9d4ccf983282583d10146301c0c3d323eb9d9'
+    'cdc14f31b260a261649b34fac50234c6ba5755154058e4f404107472822aee14'
+)
+
+build() {
+    cd "$_archive"
+
+    # Keep the Rust toolchain out of $HOME: builds must not depend on state
+    # that happens to exist on the build machine.
+    export CARGO_HOME="$srcdir/cargo-home"
+
+    # package-lock.json is committed, so ci is reproducible. No install
+    # scripts are needed by this project; npm ci still runs the tauri CLI
+    # postinstall that fetches its prebuilt binary.
+    npm ci --no-audit --no-fund
+
+    # Tauri runs beforeBuildCommand (npm run build:webview), compiles the Rust
+    # core and leaves the executable in src-tauri/target/release. Bundling is
+    # skipped: pacman does the packaging here.
+    npm run build -- --no-bundle
+}
+
+package() {
+    cd "$_archive"
+
+    install -Dm755 src-tauri/target/release/lumo-desktop \
+        "$pkgdir/usr/bin/lumo-desktop"
+
+    install -Dm644 "$srcdir/lumo-desktop.desktop" \
+        "$pkgdir/usr/share/applications/lumo-desktop.desktop"
+
+    install -Dm644 src-tauri/icons/32x32.png \
+        "$pkgdir/usr/share/icons/hicolor/32x32/apps/lumo-desktop.png"
+    install -Dm644 src-tauri/icons/64x64.png \
+        "$pkgdir/usr/share/icons/hicolor/64x64/apps/lumo-desktop.png"
+    install -Dm644 src-tauri/icons/128x128.png \
+        "$pkgdir/usr/share/icons/hicolor/128x128/apps/lumo-desktop.png"
+    install -Dm644 src-tauri/icons/128x128@2x.png \
+        "$pkgdir/usr/share/icons/hicolor/256x256/apps/lumo-desktop.png"
+
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 "$srcdir/NOTICE" "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+}

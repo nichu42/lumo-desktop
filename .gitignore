@@ -32,3 +32,6 @@ packaging/arch/*.pkg.tar.zst
 packaging/arch/*.tar.gz
 packaging/appimage/out/
 out/
+
+# Signing key material produced by packaging/gpg-keygen.sh
+packaging/dist/

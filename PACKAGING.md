@@ -136,9 +136,27 @@ workflow fails otherwise).
   branch"). The Arch workflow deploys with `deploy-pages`; the package history
   is kept on the `repo-data` branch, which is storage only and never served.
   A branch-based Pages setup would break this workflow's deploy step.
-- **Signing (recommended):** add `PACMAN_GPG_KEY` (armoured private key) and
-  `PACMAN_GPG_KEY_ID` as repository secrets. Without them the repo publishes
-  unsigned and prints a warning in the run log.
+- **Signing (recommended):** add `PACMAN_GPG_KEY` and `PACMAN_GPG_KEY_ID` as
+  repository secrets. `PACMAN_GPG_KEY` may be either the armoured private key
+  or its base64 form; without both secrets the repo publishes unsigned and
+  prints a warning in the run log.
+
+  Two ways to get a key:
+
+  - **Reuse the existing Wire Flatpak key** (already on this machine, already a
+    GitHub secret in that repo):
+    `~/Projects/wire-desktop/flatpak/dist/wire-flatpak-private-key.b64`
+    — key id `8BF57EDED5909A38`, ed25519, expires 2031-11-14,
+    uid `Wire Desktop Flatpak (unofficial) <flatpak@nichu42.github.io>`.
+    Put that file's contents in `PACMAN_GPG_KEY` and `8BF57EDED5909A38` in
+    `PACMAN_GPG_KEY_ID`. Cosmetically odd (the uid says Flatpak) but functional.
+  - **Generate a dedicated key:** `./packaging/gpg-keygen.sh` — it prints both
+    secret values and writes `packaging/dist/` (gitignored) with the armoured
+    key, its base64 form, and `lumo-repo.gpg`. Delete that directory once the
+    secrets are stored.
+
+  The CI key must be passphrase-less: `repo-add --sign` runs non-interactively
+  in the publish job.
 - **Default branch:** make `packaging` the default branch, or merge it into
   `master`. GitHub only *schedules* workflows and lists `workflow_dispatch`
   entries from the default branch — with packaging living only on `packaging`

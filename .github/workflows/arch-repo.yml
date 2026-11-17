@@ -47,12 +47,12 @@ jobs:
       - name: Install the recipe's dependencies
         run: |
           set -euo pipefail
-          # Derive the list from the recipe itself so the workflow cannot drift
-          # from the PKGBUILD. --nodeps later is only safe because of this step:
-          # gtk3/webkit2gtk-4.1 headers are what pkg-config needs during cargo.
-          cd packaging/arch
-          makepkg --printsrcinfo > /tmp/srcinfo
-          deps=$(awk -F' = ' '/^[[:space:]]*(make)?depends = /{print $2}' /tmp/srcinfo | tr '\n' ' ')
+          # Derive the list from the committed .SRCINFO so the workflow cannot
+          # drift from the PKGBUILD. makepkg itself cannot be called here: it
+          # refuses to run as root, and this step runs before the builder user
+          # exists. The build step re-generates .SRCINFO and fails on a diff.
+          deps=$(awk -F' = ' '/^[[:space:]]*(make)?depends = /{print $2}' \
+            packaging/arch/.SRCINFO | tr '\n' ' ')
           echo "installing: $deps"
           pacman -S --noconfirm --needed $deps
 
@@ -66,7 +66,10 @@ jobs:
           # above, so --nodeps is safe here.
           useradd -m builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
-          su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --noconfirm --nodeps"
+          su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && \
+            makepkg --printsrcinfo > /tmp/expected.SRCINFO && \
+            diff -u .SRCINFO /tmp/expected.SRCINFO && \
+            makepkg --noconfirm --nodeps"
 
       - uses: actions/upload-artifact@v4
         with:

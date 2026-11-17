@@ -17,6 +17,7 @@ pkgbase = lumo-desktop
 	optdepends = kwallet: encrypted credential storage (KDE Plasma)
 	provides = lumo-bin
 	conflicts = lumo-bin
+	options = !lto
 	source = lumo-desktop-0.5.9.tar.gz::https://github.com/ProtonLumo/lumo-desktop/archive/bd5e2c608bac61f215d4a2094e26ef88cb7bc1e0.tar.gz
 	source = lumo-desktop.desktop
 	source = NOTICE

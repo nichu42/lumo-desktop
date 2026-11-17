@@ -49,6 +49,14 @@ sha256sums=(
     'cdc14f31b260a261649b34fac50234c6ba5755154058e4f404107472822aee14'
 )
 
+# The C dependencies (ring, aws-lc via rustls) are compiled by cc-rs, which
+# honours makepkg's CFLAGS/LDFLAGS. Arch enables -flto=auto there by default;
+# the resulting LTO bitcode objects inside the .rlibs are not resolvable at the
+# final Rust link, and the build dies with "undefined reference to
+# aws_lc_0_45_0_*" / "ring_core_0_17_14__*". Arch's own packaging fix is to
+# disable makepkg LTO per package: options=(!lto).
+options=('!lto')
+
 build() {
     cd "$_archive"
 
@@ -56,18 +64,11 @@ build() {
     # that happens to exist on the build machine.
     export CARGO_HOME="$srcdir/cargo-home"
 
-    # Pin the C toolchain and the linker. This source links the C library
-    # aws-lc statically (via rustls) with full LTO; the bfd linker handles the
-    # resulting archive ordering, lld drops the aws_lc_* symbols and the build
-    # dies with "undefined symbol: aws_lc_0_45_0_*". The same source builds
-    # with bfd on the Ubuntu AppImage job, so this matches the known-good
-    # configuration instead of depending on the build host's default.
-    export CC=gcc CXX=g++
-    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=gcc
-    export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=bfd"
+    # Belt and braces with options=(!lto): cc-rs reads these directly, and a
+    # stray -flto from the environment reproduces the link failure above.
+    unset CFLAGS CXXFLAGS LDFLAGS
 
     echo "toolchain: $(gcc --version | head -1) | $(rustc -vV | awk '/^host:/{print $2}')"
-    env | grep -E '^(RUSTFLAGS|CC|CXX|LDFLAGS|CFLAGS|CHOST|CARCH)=' | sort || true
 
     # package-lock.json is committed, so ci is reproducible. No install
     # scripts are needed by this project; npm ci still runs the tauri CLI

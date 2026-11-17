@@ -1,0 +1,44 @@
+Lumo Desktop for Linux — unofficial builds
+==========================================
+
+This repository is a fork of Proton's Lumo Desktop source
+(https://github.com/ProtonLumo/lumo-desktop) that adds unofficial Linux
+packaging: an Arch package, an AppImage, and a pacman repository.
+
+  Upstream project : https://github.com/ProtonLumo/lumo-desktop
+  Copyright        : Proton AG and contributors
+  Licence          : GNU General Public License v3.0 only (GPL-3.0-only).
+                     The full text is the LICENSE file in this repository.
+
+The packages built here are compiled from the upstream source at the commit
+recorded in each package recipe. **No source modifications are applied** —
+the only additions are packaging metadata (desktop entry, icons, this
+notice) and the build recipes under packaging/.
+
+Not published, sponsored or endorsed by Proton AG. "Lumo" and "Proton" are
+trademarks of Proton AG. These builds receive no QA from Proton and come
+with no warranty of any kind.
+
+What is added on top of upstream
+--------------------------------
+  packaging/arch/PKGBUILD        Arch package, built from upstream source
+  packaging/arch/lumo-desktop.desktop
+                                 Desktop entry (name marked "unofficial",
+                                 StartupWMClass=lumo-desktop, proton-lumo://
+                                 scheme handler)
+  packaging/appimage/            Tauri config override for the AppImage build
+  .github/workflows/             AppImage build, Arch repo publishing,
+                                 upstream release watcher
+
+Third-party components
+----------------------
+On Linux the app uses the host's WebKitGTK, GTK 3 and libayatana-appindicator
+rather than bundling a browser engine, so their licences and notices are
+provided by the distribution packages. Bundled Rust and JavaScript
+dependencies keep their own licences; see Cargo.toml, package.json and the
+upstream repository for the full dependency set.
+
+Where to report problems
+------------------------
+Packaging problems: https://github.com/nichu42/lumo-desktop/issues
+Upstream problems:  https://github.com/ProtonLumo/lumo-desktop
